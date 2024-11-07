@@ -563,8 +563,8 @@ UART không có sự đồng bộ về gửi và nhận dữ liệu giữa 2 thi
 
 ## I. SPI Software
 
-- Xác định chân
-- 
+### 1. Xác định chân
+
 ```c
 	#define SPI_SCK_Pin GPIO_Pin_0
 	#define SPI_MISO_Pin GPIO_Pin_1
@@ -574,14 +574,208 @@ UART không có sự đồng bộ về gửi và nhận dữ liệu giữa 2 thi
 	#define SPI_RCC RCC_APB2Periph_GPIOA
 ```
 
-- Cấp xung clock cho chân giao tiếp SPI, Timer
+### 2. Cấp xung RCC_Config, cấu hình GPIO_Config 
 
 ```c
+void_RCC(){
 	RCC_APB2PeriphClockCmd(SPI_RCC, ENABLE);
 	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
-
+}
 ```
 
+- Cấu hình GPIO Master gồm: SCK, MISO, CS (Ouput); MOSI (Input). Nếu cấu hình Slave thì ngược lại Mode
+
+```c
+void GPIO_Config(){
+	GPIO_InitTypeDef GPIO_InitStruct;
+	GPIO_InitStruct.GPIO_Pin = GPIO_SCK_Pin | SPI_MOSI_Pin | SPI_CS_Pin; // SCK, MISO, CS (ouput)
+	GPIO_InitStruct.GPIO_Mode = GPIO_Mode_Out_PP;
+	GPIO_InitStruct.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_Init(SPI_GPIO, &GPIO_InitStruct);
+	
+	GPIO_InitStruct.GPIO_Pin = GPIO_MISO_Pin;
+	GPIO_InitStruct.GPIO_Mode = GPIO_Mode_IN_FLOATING; // Chan MISO(Input) -> Cau hinh chi co chuc nang doc, floating tranh sai xot
+	GPIO_InitStruct.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_Init(SPI_GPIO, &GPIO_InitStruct);
+}
+```
+### 3. Hàm cấp clock SPI_Clock
+
+- Chỉ cấp Clock cho chân SCK của Master
+
+```c
+void SPI_Clock(){
+	// Ham viet tin hieu dien ap ra(WriteBit)
+	GPIO_WriteBit(SPI_GPIO, SPI_SCK_Pin, Bit_SET);
+	delay_ms(4);
+	GPIO_WriteBit(SPI_GPIO, SPI_SCK_Pin, Bit_RESET);
+	delay_ms(4);
+}
+```
+
+### 4. Hàm setup trạng thái ban đầu master và slave
+
+```c
+// Master
+void SPI_Setup(){
+	GPIOA_WriteBit(SPI_GPIO, SPI_SCK_Pin, Bit_RESET);
+	GPIOA_WriteBit(SPI_GPIO, SPI_CS_Pin, Bit_SET);
+	GPIOA_WriteBit(SPI_GPIO, SPI_MOSI_Pin, Bit_RESET);
+}
+```
+
+```c
+// Slave
+void SPI_Setup(){
+	GPIOA_WriteBit(SPI_GPIO, SPI_MISO_Pin,Bit_RESET);
+}
+```
+
+  ![](https://github.com/hthuan02/Embedded_Automotive/blob/main/Bai5_SPI%20Software%20-%20Hardware/img/TinHieu_CSK-MISO-MOSI-CS.png)
+
+### 5. Hàm truyền và hàm nhận
+
+#### Hàm truyền lần lượt 8 bit dữ liệu
+  
+- Kéo CS xuống 0.
+   
+  	- Truyền 1 Bit.
+ 
+	- Dịch 1 Bit.
+
+ 	- Gửi Clock();
+
+- Kéo CS lên 1.
+
+```c
+void SPI_Master_Transmit(uint8_t u8Data){ //0b10010000
+	//0b10000000
+	uint8_t u8Mask = 0x80; // Tao 1 bitmask de truyen, lay MSP(trong so ben trai-Lon nhat), LSP + all bit con lai = 0
+ 	uint8_t tempData; // Bit chua gia tri cac bit truyen di
+	GPIO_WriteBit(SPI_GPIO, SPI_CS_Pin, Bit_RESET);
+	delay_ms(1); // Delay dam bao co thoi gian de CS keo xuong muc 0
+	
+	for(int i =0; i< 8; i++){
+		// (Data) AND (bitmask)
+		tempData = u8Mask & u8Data;
+			
+			// Neu ca 2 gia tri la 1, thi MISO se ghi gia tri, SET 1
+			// Neu ca 2 gia tri 1 0 (KTM toan tu AND), MISO van giu nguyen RESET_0
+			if(tempData){
+				GPIO_WriteBit(SPI_GPIO, SPI_MOSI_Pin, Bit_SET);
+				delay_ms(1);
+			}
+			else{
+                GPIO_WriteBit(SPI_GPIO, SPI_MOSI_Pin, Bit_RESET);
+				delay_ms(1);
+			}
+			
+			u8Data <<= 1;  // Dich qua ben Trai 1 bit
+			Clock(); // 1 bit truyen + Cap 1 clock
+	}
+	// Het 8 Bit du lieu, keo CS len 1
+	GPIO_WriteBit(SPI_GPIO, SPI_CS_Pin, Bit_SET);
+	delay_ms(1);
+}  	
+  ```
+
+#### Hàm nhận nhận lần lượt 8 bit dữ liệu.
+	
+- Kiểm tra CS ==0?.
+	- Kiểm tra Clock==1?
+	- Đọc data trên MOSI, ghi vào biến.
+	- Dịch 1 bit.
+- Kiểm tra CS==1?
+
+```c
+uint8_t SPI_Slave_Receive(void){
+	uint8_t dataReceive = 0x00; //0b0000 0000
+	uint8_t temp = 0x00; // Bien chua cac bit nhan vao
+	
+	while(GPIO_ReadInputDataBit(SPI_GPIO, SPI_CS_Pin)); 
+	while(!GPIO_ReadInputDataBit(SPI_GPIO, SPI_SCK_Pin));
+	// Doc lai chan SCK
+	for(int i = 0; i< 8; i++){
+		if(GPIO_ReadInputDataBit(SPI_GPIO, SPI_SCK_Pin)){ // Kiem tra, Neu SCK = 1
+	
+			while (GPIO_ReadInputDataBit(SPI_GPIO, SPI_SCK_Pin)){
+				temp = GPIO_ReadInputDataBit(SPI_GPIO, SPI_MOSI_Pin); // Doc lien tuc MOSI(nhan) tu MISO(truyen)
+			}
+			// Dich bit
+			dataReceive <<= 1; // Dich trai
+			dataReceive |=temp;
+		}
+		// Kiem tra CS =1
+		while(!GPIO_ReadInputDataBit(SPI_GPIO, SPI_SCK_Pin));
+	}
+	return dataReceive;
+}
+```
+
+## II. SPI Hardware
+
+### 1. Xác định chân
+
+- Giao tiếp SPI Hardware trên STM32 chỉ có 2 bộ SPI:
+
+  	- **PA (SPI1):** PA4 -> PA7
+  	  
+  	  ![](https://github.com/hthuan02/Embedded_Automotive/blob/main/Bai5_SPI%20Software%20-%20Hardware/img/SPI1.png)
+
+	- **PA (SPI2):** PB12 -> PA15
+
+	  ![](https://github.com/hthuan02/Embedded_Automotive/blob/main/Bai5_SPI%20Software%20-%20Hardware/img/SPI2.png)
+
+### 2. Cấp clock RCC_Config, cấu hình GPIO_Config
+
+
+### 3. Cấu hình SPI_Config
+
+Cấu hình SPI_Config() trong 1 Struct là `SPI_InitTypeDef`, trong Struct có các tham số như:
+	 
+- **SPI_Mode**: Quy định chế độ hoạt động của thiết bị SPI. 
+
+- **SPI_Direction**: Quy định kiểu truyền của thiết bị.
+
+- **SPI_BaudRatePrescaler**: Hệ số chia clock cấp cho Module SPI.
+   
+- **SPI_CPOL**: Cấu hình cực tính của SCK . Có 2 chế độ:
+
+	- SPI_CPOL_Low: Cực tính mức 0 khi SCK không truyền xung.
+
+	- SPI_CPOL_High: Cực tính mức 1 khi SCK không truyền xung.
+
+- **SPI_CPHA**: Cấu hình chế độ hoạt động của SCK. Có 2 chế độ:
+
+	- SPI_CPHA_1Edge: Tín hiệu truyền đi ở cạnh xung đầu tiên.
+
+	- SPI_CPHA_2Edge: Tín hiệu truyền đi ở cạnh xung thứ hai.
+ 
+- **SPI_DataSize**: Cấu hình số bit truyền. 8 hoặc 16 bit.
+
+- **SPI_FirstBit**: Cấu hình chiều truyền của các bit là MSB hay LSB.
+
+- **SPI_CRCPolynomial**: Cấu hình số bit CheckSum cho SPI.
+
+- **SPI_NSS**: Cấu hình chân SS là điều khiển bằng thiết bị hay phần mềm.
+
+#### Lưu ý: 4 tham số CPOL, CPHA, DataSize, FirstBit phải giống nhau ở Master và Slave để truyền chính xác dữ liệu.
+
+
+
+### 4. Các hàm gửi, nhận và lấy giá trị cờ
+
+- **SPI_I2S_SendData**: Hàm gửi mặc định  là 16bit, nếu ghi 8bit thì sẽ kèm 8bit 0 ở đầu.
+ 
+- **SPI_I2S_ReceiveData**: Hàm nhận data đọc được, gia trị trả về `uint16_t`, có thể ép kiểu `uint8_t`
+ 
+- **SPI_I2S_GetFlagStatus**: Lấy giá trị cờ trong thanh ghi SPI.
+
+	- SPI_I2S_FLAG_TXE (Transmit Buffer Empty = 0): Cờ báo truyền, cờ này sẽ set lên 1 khi bộ truyền trống (không có tín hiệu truyền).
+
+	- SPI_I2S_FLAG_RXNE (Not Empty = 1): Cờ báo nhận, cờ này set lên 1 bộ nhận không trống.
+		
+  	- SPI_I2S_FLAG_BSY: Cờ báo bận set lên 1, khi không bận = 0
 
 
 # Bài 6: I2C Software - I2C Hardware
@@ -870,6 +1064,7 @@ trỏ chính của ngăn xếp.
 # CAN
 
 # Định nghĩa
+Là hệ thống giao tiếp ....
 
 ## Tính chất
 
@@ -942,7 +1137,6 @@ Trong giao thức CAN có 2 loại error frame:
 - Passive Error Frame(Error Counter): Lỗi nghiêm trọng 
 
 ## Overload Frame(Khung quá tải)
-
 
 
 
