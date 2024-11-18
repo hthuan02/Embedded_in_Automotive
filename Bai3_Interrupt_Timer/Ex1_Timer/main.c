@@ -61,9 +61,8 @@ void TIM_Config(){
 /** Ham delay ms
 	*
 	* @SetCounter: Thay doi gia tri trong thanh ghi dem, ghi gia tri vao thanh ghi dem -> De dem len-xuong  
-  *
+	*
 	* @GetCouner: Theo doi gia tri dem 
-	* 
 	* - Khi vao ham delay TIM2 dem lai tu dau -> de kiem soat
 	* - while lien tuc kiem tra gia tri TIM2
 	*	- timedelay*10: Vi 0.1ms dem len 1 lan, can 10 lan moi dc 1ms 
