@@ -1,4 +1,10 @@
-# Bài 1: Setup KeilC - STM32F103C8
+# Embedded in Automotive
+
+###### `Sử dụng STM32F103C8`
+---
+
+<details>
+  <summary><h3>Bài 1: Setup KeilC</h3></summary>
 
 ## I. Blink Led PC13 bằng thanh ghi
 (PC13: Chân 13 của GPIO C13)
@@ -122,7 +128,11 @@
 
 ```
 
-# Bài 2: GPIO
+</details>
+
+
+<details>
+  <summary><h3>Bài 2: GPIO</h3></summary>
 
 ## I. Blink Led PC13 bằng thư viện SPL
 (SPL: Standard Peripheral Firmware Library - Thư viện STM32F10x SPL)
@@ -164,21 +174,19 @@
 	delay(10000000);
     }
 ```
+</details>
 
-# Bài 3: Interrupt & Timer
+<details>
+  <summary><h3>Bài 3: Interrupt & Timer</h3></summary>
 
 ## I. Interrupt (Ngắt)
 ### 1. Ngắt là gì?
 
 > Ngắt là 1 sự kiện khẩn cấp xảy ra trong hoặc ngoài MCU. Nó yêu cầu MCU dừng chương trình chính `main()` và thực thi **chuơng trình ngắt.**
+>
+> Các hàm ngắt có địa chỉ cố định trong bộ nhớ -> Vector Ngắt.
 
-**Các loại ngắt thông dụng:**
-
-- Mỗi ngắt có 1 trình phục vụ ngắt, mỗi  khi có ngắt thì trình phục vụ ngắt sẽ yêu cầu MCU thực thi hàm ngắt đó.
-
-- Các hàm ngắt có địa chỉ cố định trong bộ nhớ -> Vector Ngắt.
-
-- Các loại ngắt thông dụng: Reset, Ngắt ngoài, Timer, Ngắt truyền thông.
+**Các loại ngắt thông dụng:** Reset, ngắt ngoài, Timer, nngắt truyền thông.
 
 ![](https://github.com/hthuan02/Embedded_Automotive/blob/main/Bai3_Interrupt_Timer/img/Ngat.png)
 
@@ -262,8 +270,10 @@ _VD: Quy trình chạy của Program Counter:_
 ```c
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
 ```
+
 #### 2.2 Cấu hình chế độ chân 
- Tạo 1 struct `TIM_TimeBaseInitTypeDef` cấu hình cho 4 tham số: ClockDivision, Prescaler, Period, CounterMode.
+
+Tạo 1 struct `TIM_TimeBaseInitTypeDef` cấu hình cho 4 tham số: ClockDivision, Prescaler, Period, CounterMode.
 
 ```c
     TIM_TimeBaseInitTypeDef TIM_InitStruct; 
@@ -337,8 +347,10 @@ _VD: Hàm Delay ms_
      }
 
 ```
+</details>
 
-# Bài 4: Communication Protocols
+<details>
+  <summary><h3>Bài 4: Communication Protocols</h3></summary>
 
 ## 1.Truyền nhận dữ liệu là gì?
 
@@ -356,15 +368,15 @@ Vì vậy, để phân biệt các bit liền kề giống thì các chuẩn gia
 
 ## 2. Ba chế độ của truyền nhận dữ liệu:
 
-- **Đơn công**: Dữ liệu truyền theo 1 chiều, từ thiết bị gửi đến thiết bị nhận mà không có phản hồi ngược lại (Một thiết bị chỉ có thể truyền hoặc nhận).
+- **Đơn công**(simplex): Dữ liệu truyền theo 1 chiều, từ thiết bị gửi đến thiết bị nhận mà không có phản hồi ngược lại (Một thiết bị chỉ có thể truyền hoặc nhận).
 
 _VD:_ Máy phát và máy thu (kết nối micro đến loa. Chỉ có truyền âm thanh một chiều từ micro đến loa).
 
-- **Bán song công**: Dữ liệu truyền theo 2 chiều, nhưng không đồng thời. Tại 1 thời điểm chỉ một bên có thể truyền.
+- **Bán song công**(half-duplex): Dữ liệu truyền theo 2 chiều, nhưng không đồng thời. Tại 1 thời điểm chỉ một bên có thể truyền.
 
 _VD:_ Bộ đàm.
 
-- **Song công**: Dữ liệu truyền theo 2 chiều đồng thời; cả 2 bên có thể truyền hoặc nhận cùng một thời điểm. ->> SPI
+- **Song công**(full-duplex): Dữ liệu truyền theo 2 chiều đồng thời; cả 2 bên có thể truyền hoặc nhận cùng một thời điểm. ->> SPI
 
 _VD:_ Cuộc gọi điện thoại.
 
@@ -459,7 +471,9 @@ Giống với SPI, 1 bit truyền đi thì kèm theo 1 Clock.
 - Kiểm tra địa chỉ và bit R/W:
 
   - Slave nhận địa chỉ từ Master và so sánh với địa chỉ của mình. Nếu trùng khớp, Slave sẽ kiểm tra bit R/W.
+
   - R/W = 0: Master muốn ghi(gửi) dữ liệu vào Slave(Write).
+
   - R/W = 1: Master muốn đọc(nhận) dữ liệu từ Slave(Read).
 
 - Xác nhận (Bit ACK): Sau khi nhận được 8 bit (7 bit địa chỉ và 1 bit R/W), Slave gửi lại một bit ACK (bit xác nhận) bằng cách kéo SDA xuống mức 0.
@@ -558,8 +572,10 @@ UART không có sự đồng bộ về gửi và nhận dữ liệu giữa 2 thi
 | **Xác nhận dữ liệu**   | Không có cơ chế xác nhận tự động (ACK/NACK như I2C)                     | Không có cơ chế xác nhận tự động                    |
 | **Cấu trúc dữ liệu**   | Gửi dữ liệu theo frame, không có địa chỉ thiết bị   | Gửi dữ liệu theo frame có Start, Data, Optional (Parity), Stop Bit |
 
+</details>
 
-# Bài 5: SPI Software - SPI Hardware
+<details>
+  <summary><h3>Bài 5: SPI Software - SPI Hardware</h3></summary>
 
 ## I. SPI Software
 
@@ -777,15 +793,26 @@ Cấu hình SPI_Config() trong 1 Struct là `SPI_InitTypeDef`, trong Struct có 
 		
   	- SPI_I2S_FLAG_BSY: Cờ báo bận set lên 1, khi không bận = 0
 
+</details>
 
-# Bài 6: I2C Software - I2C Hardware
+<details>
+  <summary><h3>Bài 6: I2C Software - I2C Hardware</h3></summary>
 
-# Bài 7: UART Software - UART Hardware
+</details>
 
-# Bài 8: Interrupt (Continuous)
+<details>
+  <summary><h3>Bài 7: UART Software - UART Hardware</h3></summary>
+
+</details>
+
+<details>
+  <summary><h3>Bài 8: Interrupt (Continuous)</h3></summary>
+
+</details>
 
 
-# Bài 9: ADC
+<details>
+  <summary><h3>Bài 9: ADC</h3></summary>
 
 ## 1. Định nghĩa
 
@@ -889,8 +916,10 @@ Cuối cùng, cũng trong hàm cấu hình ADC. Phải chọn tần số lấy m
 ```c
      ADC_SoftwareStartConvCmd(ADC1, ENABLE);
 ```
+</details>
 
-# Bài 10: DMA & PWM
+<details>
+  <summary><h3>Bài 10: DMA & PWM</h3></summary>
 
 ## I. DMA
 ### 1. Định nghĩa
@@ -951,13 +980,13 @@ STM32F103C8T6 có 2 bộ DMA. DMA1 bao gồm 7 kênh, DMA2 bao gồm 5 kênh:
  
     - Góc 0 độ là khoảng 1000µs, góc 180 độ là khoảng 2000µs.
 
- ### 2. Cấu hình PWM
+### 2. Cấu hình PWM
 
 
+</details>
 
- 
-
- # Bài 11: Flash & Bootloader
+<details>
+  <summary><h3>Bài 11: Flash & Bootloader</h3></summary>
 
 Các bộ nhớ chính trong MCU: RAM, FLASH, EPROM
 
@@ -1060,8 +1089,10 @@ trỏ chính của ngăn xếp.
 
 - Sau khi chuyển vùng địa chỉ, dù có nhấn nút Reset, thì MCU vẫn tiếp tục chạy trong Application.
 
+</details>
 
-# CAN
+<details>
+  <summary><h3>Bài 12: CAN</h3></summary>
 
 # Định nghĩa
 Là hệ thống giao tiếp ....
@@ -1139,7 +1170,7 @@ Trong giao thức CAN có 2 loại error frame:
 ## Overload Frame(Khung quá tải)
 
 
-
+</details>
 
 
 
